@@ -4,6 +4,9 @@ using UnityEngine.Assertions;
 
 namespace ObjectPool
 {
+    /// <summary>
+    /// A pool that creates and tracks instances of a single prefab.
+    /// </summary>
     public class PrefabPool : IPool<Component>
     {
         private static readonly List<IPooledComponent> SCRATCH_POOLED_COMPONENTS = new List<IPooledComponent>();
@@ -38,6 +41,10 @@ namespace ObjectPool
             disabledRoot.SetParent(root, worldPositionStays: false);
         }
 
+        /// <summary>
+        /// Retrieve an instance of the configured prefab from the pool, creating a new instance if necessary.
+        /// Returns the instance as disabled so that the invoking system can control when to re-enable the instance.
+        /// </summary>
         public Component Acquire()
         {
             Assert.IsFalse(isDisposed);
@@ -54,11 +61,8 @@ namespace ObjectPool
                 instance = CreateInstance();
             }
 
+            // Track the new instance as active
             _activeInstances.Add(instance);
-
-            // Set the object active
-            // Its components should still be disabled due to being under a disabled transform
-            instance.gameObject.SetActive(true);
 
             // Notify any IPooledComponents that they've been acquired
             if (hasPooledComponents)
@@ -72,6 +76,7 @@ namespace ObjectPool
                 SCRATCH_POOLED_COMPONENTS.Clear();
             }
 
+            // Do not re-activate the instance -- leave that for the invoker to decide when to activate the instance
             return instance;
         }
 
@@ -105,7 +110,7 @@ namespace ObjectPool
                 SCRATCH_POOLED_COMPONENTS.Clear();
             }
 
-            // Disable the object
+            // Disable the object again so we don't pay additional costs for reparenting (e.g. recalculating UI layouts)
             pooledObject.gameObject.SetActive(false);
 
             // Reparent under the disabled root
@@ -146,7 +151,10 @@ namespace ObjectPool
 
         private Component CreateInstance()
         {
+            // Instantiate the object under the disabled root so Start() doesn't run until it gets acquired
             var instance = Object.Instantiate(prefab, disabledRoot);
+            instance.gameObject.SetActive(false);
+            
             var pooledObject = instance.gameObject.AddComponent<PooledObject>();
             pooledObject.SetPool(this);
             return instance;

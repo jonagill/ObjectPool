@@ -26,5 +26,17 @@ namespace ObjectPool
             }
         }
 #endif
+
+        public static void Return<T>(T instance) where T : Component
+        {
+            var pooledObject = instance.GetComponent<PooledObject>();
+            if (pooledObject == null)
+            {
+                Debug.LogError($"Cannot return object {instance} to a pool as it was not instantiated by a pool.");
+                return;
+            }
+            
+            pooledObject.Pool.Return(pooledObject);
+        }
     }
 }
