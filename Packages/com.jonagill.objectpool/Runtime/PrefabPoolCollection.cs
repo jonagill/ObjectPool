@@ -15,9 +15,26 @@ namespace ObjectPool
         private readonly Transform root;
         private bool isDisposed;
         
+        /// <summary>
+        /// Create a PrefabPoolCollection using the provided transform as the parent for all inactive prefab instances.
+        /// </summary>
         public PrefabPoolCollection(Transform root)
         {
             this.root = root;
+        }
+        
+        /// <summary>
+        /// Create a PrefabPoolCollection using a root-level transform as the parent for all inactive prefab instances. 
+        /// </summary>
+        public PrefabPoolCollection(string rootName, bool dontDestroyOnLoad)
+        {
+            var rootObject = new GameObject(rootName);
+            if (dontDestroyOnLoad)
+            {
+                GameObject.DontDestroyOnLoad(rootObject);
+            }
+
+            this.root = rootObject.transform;
         }
         
         #region Public API

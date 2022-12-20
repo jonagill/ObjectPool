@@ -9,8 +9,6 @@ namespace ObjectPool
     /// </summary>
     public class PrefabPool : IPool<Component>
     {
-        private static readonly List<IPooledComponent> SCRATCH_POOLED_COMPONENTS = new List<IPooledComponent>();
-
         public int TotalCount => ActiveCount + ReserveCount;
         public int ActiveCount => _activeInstances.Count;
         public int ReserveCount => _reserveInstances.Count;
@@ -22,6 +20,9 @@ namespace ObjectPool
 
         private readonly List<Component> _activeInstances = new List<Component>();
         private readonly List<Component> _reserveInstances = new List<Component>();
+
+        private readonly Dictionary<Component, IPooledComponent[]> _pooledComponentMap =
+            new Dictionary<Component, IPooledComponent[]>();
 
         /// <summary>
         /// Create a new prefab pool. Will create a new disabled GameObject under the root
@@ -67,13 +68,14 @@ namespace ObjectPool
             // Notify any IPooledComponents that they've been acquired
             if (hasPooledComponents)
             {
-                instance.GetComponentsInChildren(SCRATCH_POOLED_COMPONENTS);
-                foreach (var component in SCRATCH_POOLED_COMPONENTS)
+                var pooledComponents = _pooledComponentMap[instance];
+                foreach (var component in pooledComponents)
                 {
-                    component.OnAcquire();
+                    if (component != null)
+                    {
+                        component.OnAcquire();
+                    }
                 }
-
-                SCRATCH_POOLED_COMPONENTS.Clear();
             }
 
             // Do not re-activate the instance -- leave that for the invoker to decide when to activate the instance
@@ -101,13 +103,14 @@ namespace ObjectPool
             // Notify any IPooledComponents that they're being returned
             if (hasPooledComponents)
             {
-                instance.GetComponentsInChildren(SCRATCH_POOLED_COMPONENTS);
-                foreach (var component in SCRATCH_POOLED_COMPONENTS)
+                var pooledComponents = _pooledComponentMap[instance];
+                foreach (var component in pooledComponents)
                 {
-                    component.OnReturn();
+                    if (component != null)
+                    {
+                        component.OnReturn();    
+                    }
                 }
-
-                SCRATCH_POOLED_COMPONENTS.Clear();
             }
 
             // Disable the object again so we don't pay additional costs for reparenting (e.g. recalculating UI layouts)
@@ -145,6 +148,7 @@ namespace ObjectPool
             Object.Destroy(disabledRoot);
             _activeInstances.Clear();
             _reserveInstances.Clear();
+            _pooledComponentMap.Clear();
 
             isDisposed = true;
         }
@@ -157,6 +161,12 @@ namespace ObjectPool
             
             var pooledObject = instance.gameObject.AddComponent<PooledObject>();
             pooledObject.SetPool(this);
+
+            if (hasPooledComponents)
+            {
+                _pooledComponentMap[instance] = instance.GetComponentsInChildren<IPooledComponent>(true);
+            }
+            
             return instance;
         }
     }
