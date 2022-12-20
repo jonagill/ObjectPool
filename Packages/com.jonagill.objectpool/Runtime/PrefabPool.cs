@@ -84,7 +84,12 @@ namespace ObjectPool
 
         public void Return(Component instance)
         {
-            Assert.IsFalse(isDisposed);
+            if (isDisposed)
+            {
+                // We can't return this instance to our pool -- just destroy it
+                Object.Destroy(instance.gameObject);
+                return;
+            }
 
 #if UNITY_ASSERTIONS
             var pooledObject = instance.GetComponent<PooledObject>();
@@ -136,6 +141,15 @@ namespace ObjectPool
             {
                 _reserveInstances.Add(CreateInstance());
             }
+        }
+
+        public void Clear()
+        {
+            foreach (var instance in _reserveInstances)
+            {
+                Object.Destroy(instance.gameObject);
+            }
+            _reserveInstances.Clear();
         }
 
         public void Dispose()

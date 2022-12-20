@@ -96,6 +96,14 @@ namespace ObjectPool
             PooledObject.Return(instance);
         }
 
+        public void Clear<T>(T prefab) where T : Component
+        {
+            if (prefabPools.TryGetValue(prefab, out var pool))
+            {
+                pool.Clear();
+            }
+        }
+        
         public void Dispose()
         {
             if (isDisposed)

@@ -11,5 +11,6 @@ namespace ObjectPool
         T Acquire();
         void Return(T obj);
         void PreWarm(int capacity);
+        void Clear();
     }
 }
