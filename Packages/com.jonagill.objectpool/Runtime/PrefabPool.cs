@@ -10,18 +10,18 @@ namespace ObjectPool
     public class PrefabPool : IPool<Component>
     {
         public int TotalCount => ActiveCount + ReserveCount;
-        public int ActiveCount => _activeInstances.Count;
-        public int ReserveCount => _reserveInstances.Count;
+        public int ActiveCount => activeInstances.Count;
+        public int ReserveCount => reserveInstances.Count;
 
         private readonly Component prefab;
         private readonly Transform disabledRoot;
         private readonly bool hasPooledComponents;
         private bool isDisposed;
 
-        private readonly List<Component> _activeInstances = new List<Component>();
-        private readonly List<Component> _reserveInstances = new List<Component>();
+        private readonly List<Component> activeInstances = new List<Component>();
+        private readonly List<Component> reserveInstances = new List<Component>();
 
-        private readonly Dictionary<Component, IPooledComponent[]> _pooledComponentMap =
+        private readonly Dictionary<Component, IPooledComponent[]> pooledComponentMap =
             new Dictionary<Component, IPooledComponent[]>();
 
         /// <summary>
@@ -51,11 +51,11 @@ namespace ObjectPool
             Assert.IsFalse(isDisposed);
 
             Component instance = null;
-            if (_reserveInstances.Count > 0)
+            if (reserveInstances.Count > 0)
             {
-                var lastIndex = _reserveInstances.Count - 1;
-                instance = _reserveInstances[lastIndex];
-                _reserveInstances.RemoveAt(lastIndex);
+                var lastIndex = reserveInstances.Count - 1;
+                instance = reserveInstances[lastIndex];
+                reserveInstances.RemoveAt(lastIndex);
             }
             else
             {
@@ -63,12 +63,12 @@ namespace ObjectPool
             }
 
             // Track the new instance as active
-            _activeInstances.Add(instance);
+            activeInstances.Add(instance);
 
             // Notify any IPooledComponents that they've been acquired
             if (hasPooledComponents)
             {
-                var pooledComponents = _pooledComponentMap[instance];
+                var pooledComponents = pooledComponentMap[instance];
                 foreach (var component in pooledComponents)
                 {
                     if (component != null)
@@ -100,15 +100,20 @@ namespace ObjectPool
                 this,
                 pooledObject.Pool,
                 $"Component {instance} cannot be returned as it was instantiated by a different pool.");
+            Assert.AreEqual(
+                prefab.GetType(),
+                instance.GetType(),
+                $"Component {instance} cannot be returned as it is of type {instance.GetType()}, but this pool expects type {prefab.GetType()}.");
+
             Assert.IsTrue(
-                _activeInstances.Contains(instance),
+                activeInstances.Contains(instance),
                 $"Component {instance} cannot be returned as it is not considered an active instance by this pool.");
 #endif
 
             // Notify any IPooledComponents that they're being returned
             if (hasPooledComponents)
             {
-                var pooledComponents = _pooledComponentMap[instance];
+                var pooledComponents = pooledComponentMap[instance];
                 foreach (var component in pooledComponents)
                 {
                     if (component != null)
@@ -124,8 +129,8 @@ namespace ObjectPool
             // Reparent under the disabled root
             pooledObject.transform.SetParent(disabledRoot, false);
 
-            _activeInstances.Remove(instance);
-            _reserveInstances.Add(instance);
+            activeInstances.Remove(instance);
+            reserveInstances.Add(instance);
         }
 
         /// <summary>
@@ -137,19 +142,19 @@ namespace ObjectPool
             Assert.IsFalse(isDisposed);
 
             var needInReserve = capacity - ActiveCount;
-            while (_reserveInstances.Count < needInReserve)
+            while (reserveInstances.Count < needInReserve)
             {
-                _reserveInstances.Add(CreateInstance());
+                reserveInstances.Add(CreateInstance());
             }
         }
 
         public void Clear()
         {
-            foreach (var instance in _reserveInstances)
+            foreach (var instance in reserveInstances)
             {
                 Object.Destroy(instance.gameObject);
             }
-            _reserveInstances.Clear();
+            reserveInstances.Clear();
         }
 
         public void Dispose()
@@ -160,9 +165,9 @@ namespace ObjectPool
             }
 
             Object.Destroy(disabledRoot);
-            _activeInstances.Clear();
-            _reserveInstances.Clear();
-            _pooledComponentMap.Clear();
+            activeInstances.Clear();
+            reserveInstances.Clear();
+            pooledComponentMap.Clear();
 
             isDisposed = true;
         }
@@ -178,7 +183,7 @@ namespace ObjectPool
 
             if (hasPooledComponents)
             {
-                _pooledComponentMap[instance] = instance.GetComponentsInChildren<IPooledComponent>(true);
+                pooledComponentMap[instance] = instance.GetComponentsInChildren<IPooledComponent>(true);
             }
             
             return instance;

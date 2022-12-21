@@ -32,11 +32,12 @@ namespace ObjectPool
             var pooledObject = instance.GetComponent<PooledObject>();
             if (pooledObject == null)
             {
-                Debug.LogError($"Cannot return object {instance} to a pool as it was not instantiated by a pool.");
+                // There is no pool to return to, so simply destroy this object
+                Destroy( instance.gameObject  );
                 return;
             }
-            
-            pooledObject.Pool.Return(pooledObject);
+
+            pooledObject.Pool.Return(instance);
         }
     }
 }

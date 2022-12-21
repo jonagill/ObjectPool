@@ -26,7 +26,7 @@ namespace ObjectPool
         /// <summary>
         /// Create a PrefabPoolCollection using a root-level transform as the parent for all inactive prefab instances. 
         /// </summary>
-        public PrefabPoolCollection(string rootName, bool dontDestroyOnLoad)
+        public PrefabPoolCollection(string rootName, bool dontDestroyOnLoad = false)
         {
             var rootObject = new GameObject(rootName);
             if (dontDestroyOnLoad)
@@ -132,11 +132,7 @@ namespace ObjectPool
             var pool = GetOrCreatePool(prefab);
             var instance = pool.Acquire();
             
-            if (parent != null)
-            {
-                instance.transform.SetParent(parent);
-            }
-
+            instance.transform.SetParent(parent);
             instance.transform.localPosition = localPosition;
             instance.transform.localRotation = localRotation;
 
