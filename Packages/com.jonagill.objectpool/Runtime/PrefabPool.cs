@@ -34,6 +34,11 @@ namespace ObjectPool
         private readonly bool hasPooledComponents;
         private readonly Dictionary<GameObject, IPooledComponent[]> pooledComponentMap =
             new Dictionary<GameObject, IPooledComponent[]>();
+
+        private readonly bool hasTrailRenderers;
+        private readonly Dictionary<GameObject, TrailRenderer[]> trailRendererMap =
+            new Dictionary<GameObject, TrailRenderer[]>();
+        
         /// <summary>
         /// Create a new prefab pool. Will create a new disabled GameObject under the root
         /// transform under which all prefab instances will be constructed so that they are
@@ -46,6 +51,7 @@ namespace ObjectPool
 
             this.prefab = prefab;
             hasPooledComponents = prefab.GetComponentInChildren<IPooledComponent>(true) != null;
+            hasTrailRenderers = prefab.GetComponentInChildren<TrailRenderer>( true ) != null;
 
             disabledRoot = new GameObject($"PrefabPool ({prefab.name})").transform;
             disabledRoot.gameObject.SetActive(false);
@@ -59,6 +65,7 @@ namespace ObjectPool
         public T Acquire()
         {
             Assert.IsFalse(isDisposed);
+            Assert.IsNotNull( disabledRoot );
 
             T instance = null;
             if (reserveInstances.Count > 0)
@@ -87,6 +94,16 @@ namespace ObjectPool
                     }
                 }
             }
+            
+            // Clear any old vertices from our trail renderers
+            if ( hasTrailRenderers )
+            {
+                var trailRenderers = trailRendererMap[instance.gameObject];
+                foreach ( var renderer in trailRenderers )
+                {
+                    renderer.Clear();
+                }
+            }
 
             // Do not re-activate the instance -- leave that for the invoker to decide when to activate the instance
             return instance;
@@ -104,6 +121,7 @@ namespace ObjectPool
         public void Return(T instance)
         {
             Assert.IsNotNull( instance );
+            Assert.IsNotNull( disabledRoot );
 
             if (isDisposed)
             {
@@ -172,10 +190,10 @@ namespace ObjectPool
                 {
                     pooledComponentMap.Remove( instance.gameObject );
                 }
-
-                if ( hasParticleSystems )
+                
+                if ( hasTrailRenderers )
                 {
-                    particleSystemMap.Remove( instance.gameObject );
+                    trailRendererMap.Remove( instance.gameObject );
                 }
                 
                 Object.Destroy(instance.gameObject);
@@ -210,6 +228,11 @@ namespace ObjectPool
             if (hasPooledComponents)
             {
                 pooledComponentMap[instance.gameObject] = instance.GetComponentsInChildren<IPooledComponent>(true);
+            }
+            
+            if ( hasTrailRenderers )
+            {
+                trailRendererMap[instance.gameObject] = instance.GetComponentsInChildren<TrailRenderer>( true );
             }
 
             return instance;

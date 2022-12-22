@@ -28,7 +28,7 @@ namespace ObjectPool
         /// </summary>
         public PrefabPoolCollection(string rootName, bool dontDestroyOnLoad = false)
         {
-            var rootObject = new GameObject(rootName);
+            var rootObject = new GameObject($"Pool Collection ({rootName})");
             if (dontDestroyOnLoad)
             {
                 GameObject.DontDestroyOnLoad(rootObject);
