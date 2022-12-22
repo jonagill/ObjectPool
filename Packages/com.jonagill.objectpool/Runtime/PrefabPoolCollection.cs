@@ -8,7 +8,7 @@ namespace ObjectPool
     /// <summary>
     /// A collection of pools that creates and tracks instances of multiple prefabs.
     /// </summary>
-    public class PrefabPoolCollection : IDisposable
+    public class PrefabPoolCollection : IPoolCollection, IDisposable
     {
         private readonly Dictionary<Component, PrefabPool> prefabPools = new Dictionary<Component, PrefabPool>();
 
@@ -95,6 +95,14 @@ namespace ObjectPool
             // but is included here so that Acquire() and Return() are accessible from the same API
             PooledObject.Return(instance);
         }
+        
+        public void ClearAll()
+        {
+            foreach ( var pool in prefabPools.Values )
+            {
+                pool.Clear();
+            }
+        }
 
         public void Clear<T>(T prefab) where T : Component
         {
@@ -148,15 +156,15 @@ namespace ObjectPool
         
         #region Helpers
         
-        private PrefabPool GetOrCreatePool(Component prefab)
+        private IPool<T> GetOrCreatePool<T>(T prefab) where T : Component
         {
             if (!prefabPools.TryGetValue(prefab, out var pool))
             {
-                pool = new PrefabPool(prefab, root);
+                pool = new PrefabPool<T>(prefab, root);
                 prefabPools[prefab] = pool;
             }
 
-            return pool;
+            return (IPool<T>) pool;
         }
         
         #endregion

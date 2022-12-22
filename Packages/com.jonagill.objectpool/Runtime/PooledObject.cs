@@ -1,5 +1,5 @@
-﻿using UnityEditor;
-using UnityEngine;
+﻿using UnityEngine;
+using UnityEngine.Assertions;
 
 namespace ObjectPool
 {
@@ -26,6 +26,12 @@ namespace ObjectPool
             }
         }
 #endif
+        
+        public static void Return(GameObject gameObject)
+        {
+            Assert.IsNotNull( gameObject );
+            Return( gameObject.transform );
+        }
 
         public static void Return<T>(T instance) where T : Component
         {
@@ -37,7 +43,7 @@ namespace ObjectPool
                 return;
             }
 
-            pooledObject.Pool.Return(instance);
+            pooledObject.Pool.Return(instance.gameObject);
         }
     }
 }

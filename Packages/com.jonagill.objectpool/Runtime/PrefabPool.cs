@@ -4,32 +4,42 @@ using UnityEngine.Assertions;
 
 namespace ObjectPool
 {
+    public abstract class PrefabPool : IPool
+    {
+        public abstract int TotalCount { get; }
+        public abstract int ActiveCount { get; }
+        public abstract int ReserveCount { get; }
+        
+        public abstract void Return(GameObject gameObject);
+        public abstract void Clear();
+        public abstract void Dispose();
+    }
+    
     /// <summary>
     /// A pool that creates and tracks instances of a single prefab.
     /// </summary>
-    public class PrefabPool : IPool<Component>
+    public class PrefabPool<T> : PrefabPool, IPool<T> where T : Component
     {
-        public int TotalCount => ActiveCount + ReserveCount;
-        public int ActiveCount => activeInstances.Count;
-        public int ReserveCount => reserveInstances.Count;
+        public override int TotalCount => ActiveCount + ReserveCount;
+        public override int ActiveCount => activeInstances.Count;
+        public override int ReserveCount => reserveInstances.Count;
 
-        private readonly Component prefab;
+        private readonly T prefab;
         private readonly Transform disabledRoot;
-        private readonly bool hasPooledComponents;
         private bool isDisposed;
 
-        private readonly List<Component> activeInstances = new List<Component>();
-        private readonly List<Component> reserveInstances = new List<Component>();
+        private readonly List<T> activeInstances = new List<T>();
+        private readonly List<T> reserveInstances = new List<T>();
 
-        private readonly Dictionary<Component, IPooledComponent[]> pooledComponentMap =
-            new Dictionary<Component, IPooledComponent[]>();
-
+        private readonly bool hasPooledComponents;
+        private readonly Dictionary<GameObject, IPooledComponent[]> pooledComponentMap =
+            new Dictionary<GameObject, IPooledComponent[]>();
         /// <summary>
         /// Create a new prefab pool. Will create a new disabled GameObject under the root
         /// transform under which all prefab instances will be constructed so that they are
         /// instantiated as disabled and do not run Start() until they have been acquired for the first time.
         /// </summary>
-        public PrefabPool(Component prefab, Transform root)
+        public PrefabPool(T prefab, Transform root)
         {
             Assert.IsNotNull(prefab);
             Assert.IsNotNull(root);
@@ -46,11 +56,11 @@ namespace ObjectPool
         /// Retrieve an instance of the configured prefab from the pool, creating a new instance if necessary.
         /// Returns the instance as disabled so that the invoking system can control when to re-enable the instance.
         /// </summary>
-        public Component Acquire()
+        public T Acquire()
         {
             Assert.IsFalse(isDisposed);
 
-            Component instance = null;
+            T instance = null;
             if (reserveInstances.Count > 0)
             {
                 var lastIndex = reserveInstances.Count - 1;
@@ -68,7 +78,7 @@ namespace ObjectPool
             // Notify any IPooledComponents that they've been acquired
             if (hasPooledComponents)
             {
-                var pooledComponents = pooledComponentMap[instance];
+                var pooledComponents = pooledComponentMap[instance.gameObject];
                 foreach (var component in pooledComponents)
                 {
                     if (component != null)
@@ -81,9 +91,20 @@ namespace ObjectPool
             // Do not re-activate the instance -- leave that for the invoker to decide when to activate the instance
             return instance;
         }
-
-        public void Return(Component instance)
+        
+        public override void Return(GameObject gameObject)
         {
+            Assert.IsNotNull( gameObject );
+            var instance = gameObject.GetComponent<T>();
+            Assert.IsNotNull( instance );
+
+            Return( instance );
+        }
+
+        public void Return(T instance)
+        {
+            Assert.IsNotNull( instance );
+
             if (isDisposed)
             {
                 // We can't return this instance to our pool -- just destroy it
@@ -92,6 +113,7 @@ namespace ObjectPool
             }
 
 #if UNITY_ASSERTIONS
+            // Check that this is the right pool to be returning to
             var pooledObject = instance.GetComponent<PooledObject>();
             Assert.IsNotNull(
                 pooledObject,
@@ -100,20 +122,14 @@ namespace ObjectPool
                 this,
                 pooledObject.Pool,
                 $"Component {instance} cannot be returned as it was instantiated by a different pool.");
-            Assert.AreEqual(
-                prefab.GetType(),
-                instance.GetType(),
-                $"Component {instance} cannot be returned as it is of type {instance.GetType()}, but this pool expects type {prefab.GetType()}.");
-
-            Assert.IsTrue(
-                activeInstances.Contains(instance),
-                $"Component {instance} cannot be returned as it is not considered an active instance by this pool.");
 #endif
-
+            
+            Assert.IsTrue( activeInstances.Contains( instance ), $"Component {instance} cannot be returned as it is not considered an active instance by this pool." );
+            
             // Notify any IPooledComponents that they're being returned
             if (hasPooledComponents)
             {
-                var pooledComponents = pooledComponentMap[instance];
+                var pooledComponents = pooledComponentMap[instance.gameObject];
                 foreach (var component in pooledComponents)
                 {
                     if (component != null)
@@ -122,7 +138,7 @@ namespace ObjectPool
                     }
                 }
             }
-
+            
             // Disable the object again so we don't pay additional costs for reparenting (e.g. recalculating UI layouts)
             pooledObject.gameObject.SetActive(false);
 
@@ -148,16 +164,26 @@ namespace ObjectPool
             }
         }
 
-        public void Clear()
+        public override void Clear()
         {
             foreach (var instance in reserveInstances)
             {
+                if ( hasPooledComponents )
+                {
+                    pooledComponentMap.Remove( instance.gameObject );
+                }
+
+                if ( hasParticleSystems )
+                {
+                    particleSystemMap.Remove( instance.gameObject );
+                }
+                
                 Object.Destroy(instance.gameObject);
             }
             reserveInstances.Clear();
         }
 
-        public void Dispose()
+        public override void Dispose()
         {
             if (isDisposed)
             {
@@ -172,7 +198,7 @@ namespace ObjectPool
             isDisposed = true;
         }
 
-        private Component CreateInstance()
+        private T CreateInstance()
         {
             // Instantiate the object under the disabled root so Start() doesn't run until it gets acquired
             var instance = Object.Instantiate(prefab, disabledRoot);
@@ -183,9 +209,9 @@ namespace ObjectPool
 
             if (hasPooledComponents)
             {
-                pooledComponentMap[instance] = instance.GetComponentsInChildren<IPooledComponent>(true);
+                pooledComponentMap[instance.gameObject] = instance.GetComponentsInChildren<IPooledComponent>(true);
             }
-            
+
             return instance;
         }
     }
