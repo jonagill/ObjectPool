@@ -129,6 +129,12 @@ namespace ObjectPool
                 Object.Destroy(instance.gameObject);
                 return;
             }
+            
+            if ( reserveInstances.Contains( instance ) )
+            {
+                // Someone else has already returned this object
+                return;
+            }
 
 #if UNITY_ASSERTIONS
             // Check that this is the right pool to be returning to
