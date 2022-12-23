@@ -132,13 +132,13 @@ namespace ObjectPool
 
 #if UNITY_ASSERTIONS
             // Check that this is the right pool to be returning to
-            var pooledObject = instance.GetComponent<PooledObject>();
+            var pooledObjectForAssertions = instance.GetComponent<PooledObject>();
             Assert.IsNotNull(
-                pooledObject,
+                pooledObjectForAssertions,
                 $"Component {instance} cannot be returned as it was not instantiated by a pool.");
             Assert.AreEqual(
                 this,
-                pooledObject.Pool,
+                pooledObjectForAssertions.Pool,
                 $"Component {instance} cannot be returned as it was instantiated by a different pool.");
 #endif
             
@@ -158,10 +158,10 @@ namespace ObjectPool
             }
             
             // Disable the object again so we don't pay additional costs for reparenting (e.g. recalculating UI layouts)
-            pooledObject.gameObject.SetActive(false);
+            instance.gameObject.SetActive(false);
 
             // Reparent under the disabled root
-            pooledObject.transform.SetParent(disabledRoot, false);
+            instance.transform.SetParent(disabledRoot, false);
 
             activeInstances.Remove(instance);
             reserveInstances.Add(instance);
