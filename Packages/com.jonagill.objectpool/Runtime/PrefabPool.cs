@@ -120,15 +120,15 @@ namespace ObjectPool
 
         public void Return(T instance)
         {
-            Assert.IsNotNull( instance );
-            Assert.IsNotNull( disabledRoot );
-
             if (isDisposed)
             {
                 // We can't return this instance to our pool -- just destroy it
                 Object.Destroy(instance.gameObject);
                 return;
             }
+            
+            Assert.IsNotNull( instance );
+            Assert.IsNotNull( disabledRoot );
             
             if ( reserveInstances.Contains( instance ) )
             {
@@ -214,7 +214,10 @@ namespace ObjectPool
                 return;
             }
 
-            Object.Destroy(disabledRoot);
+            if (disabledRoot)
+            {
+                Object.Destroy(disabledRoot.gameObject);
+            }
             activeInstances.Clear();
             reserveInstances.Clear();
             pooledComponentMap.Clear();
