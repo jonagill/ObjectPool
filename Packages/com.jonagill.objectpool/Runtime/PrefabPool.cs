@@ -1,6 +1,8 @@
 ﻿using System.Collections.Generic;
+using System.Diagnostics;
 using UnityEngine;
 using UnityEngine.Assertions;
+using Debug = UnityEngine.Debug;
 
 namespace ObjectPool
 {
@@ -81,6 +83,12 @@ namespace ObjectPool
 
             // Track the new instance as active
             activeInstances.Add(instance);
+            
+            // Unparent from the disabled root
+            instance.transform.SetParent( null );
+
+            // Run editor check to make sure no one is adding or removing IPooledComponents after acquisition
+            EditorEnsurePooledComponentsMatchCachedValues( instance.gameObject );
 
             // Notify any IPooledComponents that they've been acquired
             if (hasPooledComponents)
@@ -138,14 +146,21 @@ namespace ObjectPool
 
 #if UNITY_ASSERTIONS
             // Check that this is the right pool to be returning to
-            var pooledObjectForAssertions = instance.GetComponent<PooledObject>();
+            var pooledObject = instance.GetComponent<PooledObject>();
             Assert.IsNotNull(
-                pooledObjectForAssertions,
+                pooledObject,
                 $"Component {instance} cannot be returned as it was not instantiated by a pool.");
             Assert.AreEqual(
                 this,
-                pooledObjectForAssertions.Pool,
+                pooledObject.Pool,
                 $"Component {instance} cannot be returned as it was instantiated by a different pool.");
+            Assert.AreEqual(
+                prefab.GetType(),
+                instance.GetType(),
+                $"Component {instance} cannot be returned as it is of type {instance.GetType()}, but this pool expects type {prefab.GetType()}.");
+            Assert.IsTrue(
+                activeInstances.Contains(instance),
+                $"Component {instance} cannot be returned as it is not considered an active instance by this pool.");
 #endif
             
             Assert.IsTrue( activeInstances.Contains( instance ), $"Component {instance} cannot be returned as it is not considered an active instance by this pool." );
@@ -245,6 +260,18 @@ namespace ObjectPool
             }
 
             return instance;
+        }
+        
+        [Conditional("UNITY_EDITOR")]
+        private void EditorEnsurePooledComponentsMatchCachedValues( GameObject instance )
+        {
+            var pooledComponents = instance.GetComponentsInChildren<IPooledComponent>(true);
+            var cachedPooledComponentCount = hasPooledComponents ? pooledComponentMap[instance].Length : 0;
+            if ( cachedPooledComponentCount != pooledComponents.Length )
+            {
+                Debug.LogError( $"Pooled instance {instance} has a different number of {nameof(IPooledComponent)} instances ({pooledComponents.Length}) than its prefab ({cachedPooledComponentCount}).\n" +
+                                $"Adding or removing {nameof(IPooledComponent)}s at runtime is not currently supported." );
+            }
         }
     }
 }
