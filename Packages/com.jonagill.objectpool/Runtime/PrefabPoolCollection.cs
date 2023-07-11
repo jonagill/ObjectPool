@@ -140,7 +140,7 @@ namespace ObjectPool
             var pool = GetOrCreatePool(prefab);
             var instance = pool.Acquire();
             
-            instance.transform.SetParent(parent);
+            instance.transform.SetParent(parent, false);
             instance.transform.localPosition = localPosition;
             instance.transform.localRotation = localRotation;
 

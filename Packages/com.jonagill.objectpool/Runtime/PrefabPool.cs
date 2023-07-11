@@ -85,7 +85,7 @@ namespace ObjectPool
             activeInstances.Add(instance);
             
             // Unparent from the disabled root
-            instance.transform.SetParent( null );
+            instance.transform.SetParent( null, worldPositionStays: false );
 
             // Run editor check to make sure no one is adding or removing IPooledComponents after acquisition
             EditorEnsurePooledComponentsMatchCachedValues( instance.gameObject );
