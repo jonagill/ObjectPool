@@ -10,9 +10,9 @@ namespace ObjectPool
         void Clear();
     }
 
-    public interface IPool<T> : IPool
+    public interface IPool<T> : IPool where T : class
     {
-        T Acquire();
+        PooledInstance<T> Acquire();
         void Return(T obj);
         void PreWarm(int capacity);
     }

@@ -30,7 +30,7 @@ namespace ObjectPool
         private readonly Transform poolRoot;
         private bool isDisposed;
 
-        private readonly List<T> activeInstances = new List<T>();
+        private readonly List<PooledInstance<T>> activeInstances = new List<PooledInstance<T>>();
         private readonly List<T> reserveInstances = new List<T>();
 
         private readonly bool hasPooledComponents;
@@ -62,7 +62,7 @@ namespace ObjectPool
         /// Retrieve an instance of the configured prefab from the pool, creating a new instance if necessary.
         /// Returns the instance as disabled so that the invoking system can control when to re-enable the instance.
         /// </summary>
-        public T Acquire()
+        public PooledInstance<T> Acquire()
         {
             Assert.IsFalse(isDisposed);
             Assert.IsNotNull( poolRoot );
@@ -79,8 +79,10 @@ namespace ObjectPool
                 instance = CreateInstance();
             }
 
-            // Track the new instance as active
-            activeInstances.Add(instance);
+            var pooledInstance = new PooledInstance<T>(instance, this);
+
+            // Track the new instance and its lifecycle token
+            activeInstances.Add(pooledInstance);
             
             // Unparent from the disabled root
             instance.transform.SetParent( null, worldPositionStays: false );
@@ -112,7 +114,7 @@ namespace ObjectPool
             }
 
             // Do not re-activate the instance -- leave that for the invoker to decide when to activate the instance
-            return instance;
+            return pooledInstance;
         }
         
         public override void Return(GameObject gameObject)
@@ -156,13 +158,25 @@ namespace ObjectPool
                 prefab.GetType(),
                 instance.GetType(),
                 $"Component {instance} cannot be returned as it is of type {instance.GetType()}, but this pool expects type {prefab.GetType()}.");
-            Assert.IsTrue(
-                activeInstances.Contains(instance),
-                $"Component {instance} cannot be returned as it is not considered an active instance by this pool.");
 #endif
+
+            // Search from the back of the collection to the front so that frequently pooled and unpooled
+            // objects don't have to search through the oldest instances first to find themselves
+            int instanceIndex = -1;
+            for (int i = activeInstances.Count-1; i >= 0; i--)
+            {
+                if (activeInstances[i].Instance == instance)
+                {
+                    instanceIndex = i;
+                    break;
+                }
+            }
             
-            Assert.IsTrue( activeInstances.Contains( instance ), $"Component {instance} cannot be returned as it is not considered an active instance by this pool." );
-            
+            Assert.IsTrue(instanceIndex >= 0, $"Component {instance} cannot be returned as it is not considered an active instance by this pool.");
+
+            var pooledInstance = activeInstances[instanceIndex];
+            Assert.IsTrue(pooledInstance.IsValid, $"Component {instance} cannot be returned as its lifecycle has already been marked as complete.");
+
             // Notify any IPooledComponents that they're being returned
             if (hasPooledComponents)
             {
@@ -182,8 +196,11 @@ namespace ObjectPool
             // Reparent under the disabled root
             instance.transform.SetParent(poolRoot, false);
 
-            activeInstances.Remove(instance);
+            activeInstances.RemoveAt(instanceIndex);
             reserveInstances.Add(instance);
+            
+            // Mark that this lifecycle has ended
+            ((IPooledLifetime) pooledInstance).MarkInvalid();
         }
 
         /// <summary>

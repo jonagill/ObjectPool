@@ -39,44 +39,43 @@ namespace ObjectPool
         
         #region Public API
         
-        public T Acquire<T>(T prefab) where T : Component
+        public PooledInstance<T> Acquire<T>(T prefab) where T : Component
         {
             return Acquire(prefab, null, Vector3.zero, Quaternion.identity);
         }
         
-        public T Acquire<T>(T prefab, Transform parent) where T : Component
+        public PooledInstance<T> Acquire<T>(T prefab, Transform parent) where T : Component
         {
             return Acquire(prefab, parent, Vector3.zero, Quaternion.identity);
 
         }
         
-        public T Acquire<T>(T prefab, Vector3 localPosition, Quaternion localRotation) where T : Component
+        public PooledInstance<T> Acquire<T>(T prefab, Vector3 localPosition, Quaternion localRotation) where T : Component
         {
             return Acquire(prefab, null, localPosition, localRotation);
         }
         
-        public T Acquire<T>(T prefab, Transform parent, Vector3 localPosition, Quaternion localRotation) where T : Component
+        public PooledInstance<T> Acquire<T>(T prefab, Transform parent, Vector3 localPosition, Quaternion localRotation) where T : Component
         {
             return AcquireInternal(prefab, true, parent, localPosition, localRotation);
         }
         
-        public T AcquireDisabled<T>(T prefab) where T : Component
+        public PooledInstance<T> AcquireDisabled<T>(T prefab) where T : Component
         {
             return AcquireDisabled(prefab, null, Vector3.zero, Quaternion.identity);
         }
         
-        public T AcquireDisabled<T>(T prefab, Transform parent) where T : Component
+        public PooledInstance<T> AcquireDisabled<T>(T prefab, Transform parent) where T : Component
         {
             return AcquireDisabled(prefab, parent, Vector3.zero, Quaternion.identity);
-
         }
         
-        public T AcquireDisabled<T>(T prefab, Vector3 localPosition, Quaternion localRotation) where T : Component
+        public PooledInstance<T> AcquireDisabled<T>(T prefab, Vector3 localPosition, Quaternion localRotation) where T : Component
         {
             return AcquireDisabled(prefab, null, localPosition, localRotation);
         }
         
-        public T AcquireDisabled<T>(T prefab, Transform parent, Vector3 localPosition, Quaternion localRotation) where T : Component
+        public PooledInstance<T> AcquireDisabled<T>(T prefab, Transform parent, Vector3 localPosition, Quaternion localRotation) where T : Component
         {
             return AcquireInternal(prefab, false, parent, localPosition, localRotation);
         }
@@ -133,23 +132,24 @@ namespace ObjectPool
         
         #region Internals
         
-        private T AcquireInternal<T>(T prefab, bool activate, Transform parent, Vector3 localPosition, Quaternion localRotation) where T : Component
+        private PooledInstance<T> AcquireInternal<T>(T prefab, bool activate, Transform parent, Vector3 localPosition, Quaternion localRotation) where T : Component
         {
             Assert.IsFalse(isDisposed);
             
             var pool = GetOrCreatePool(prefab);
-            var instance = pool.Acquire();
+            var pooledInstance = pool.Acquire();
+            var instanceTransform = pooledInstance.Instance.transform;
             
-            instance.transform.SetParent(parent, false);
-            instance.transform.localPosition = localPosition;
-            instance.transform.localRotation = localRotation;
+            instanceTransform.SetParent(parent, false);
+            instanceTransform.localPosition = localPosition;
+            instanceTransform.localRotation = localRotation;
 
             if (activate)
             {
-                instance.gameObject.SetActive(true);
+                instanceTransform.gameObject.SetActive(true);
             }
 
-            return (T) instance;
+            return pooledInstance;
         }
         
         #endregion
