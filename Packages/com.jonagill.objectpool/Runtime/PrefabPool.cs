@@ -27,7 +27,7 @@ namespace ObjectPool
         public override int ReserveCount => reserveInstances.Count;
 
         private readonly T prefab;
-        private readonly Transform disabledRoot;
+        private readonly Transform poolRoot;
         private bool isDisposed;
 
         private readonly List<T> activeInstances = new List<T>();
@@ -42,9 +42,8 @@ namespace ObjectPool
             new Dictionary<GameObject, TrailRenderer[]>();
         
         /// <summary>
-        /// Create a new prefab pool. Will create a new disabled GameObject under the root
-        /// transform under which all prefab instances will be constructed so that they are
-        /// instantiated as disabled and do not run Start() until they have been acquired for the first time.
+        /// Create a new prefab pool. Will create a new GameObject under the root
+        /// transform under which all prefab instances will be constructed
         /// </summary>
         public PrefabPool(T prefab, Transform root)
         {
@@ -55,9 +54,8 @@ namespace ObjectPool
             hasPooledComponents = prefab.GetComponentInChildren<IPooledComponent>(true) != null;
             hasTrailRenderers = prefab.GetComponentInChildren<TrailRenderer>( true ) != null;
 
-            disabledRoot = new GameObject($"PrefabPool ({prefab.name})").transform;
-            disabledRoot.gameObject.SetActive(false);
-            disabledRoot.SetParent(root, worldPositionStays: false);
+            poolRoot = new GameObject($"PrefabPool ({prefab.name})").transform;
+            poolRoot.SetParent(root, worldPositionStays: false);
         }
 
         /// <summary>
@@ -67,7 +65,7 @@ namespace ObjectPool
         public T Acquire()
         {
             Assert.IsFalse(isDisposed);
-            Assert.IsNotNull( disabledRoot );
+            Assert.IsNotNull( poolRoot );
 
             T instance = null;
             if (reserveInstances.Count > 0)
@@ -136,7 +134,7 @@ namespace ObjectPool
             }
             
             Assert.IsNotNull( instance );
-            Assert.IsNotNull( disabledRoot );
+            Assert.IsNotNull( poolRoot );
             
             if ( reserveInstances.Contains( instance ) )
             {
@@ -182,7 +180,7 @@ namespace ObjectPool
             instance.gameObject.SetActive(false);
 
             // Reparent under the disabled root
-            instance.transform.SetParent(disabledRoot, false);
+            instance.transform.SetParent(poolRoot, false);
 
             activeInstances.Remove(instance);
             reserveInstances.Add(instance);
@@ -229,9 +227,9 @@ namespace ObjectPool
                 return;
             }
 
-            if (disabledRoot)
+            if (poolRoot)
             {
-                Object.Destroy(disabledRoot.gameObject);
+                Object.Destroy(poolRoot.gameObject);
             }
             activeInstances.Clear();
             reserveInstances.Clear();
@@ -242,8 +240,8 @@ namespace ObjectPool
 
         private T CreateInstance()
         {
-            // Instantiate the object under the disabled root so Start() doesn't run until it gets acquired
-            var instance = Object.Instantiate(prefab, disabledRoot);
+            // Instantiate the instance, allowing Awake() and Start() to run
+            var instance = Object.Instantiate(prefab, poolRoot);
             instance.gameObject.SetActive(false);
             
             var pooledObject = instance.gameObject.AddComponent<PooledObject>();
