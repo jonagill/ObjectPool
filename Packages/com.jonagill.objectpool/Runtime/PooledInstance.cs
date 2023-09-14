@@ -31,6 +31,7 @@ namespace ObjectPool
         // Explicitly implement the IPooledLifetime interface so this has to be called very intentionally
         void IPooledLifetime.MarkInvalid()
         {
+            Assert.IsTrue(_isValid);
             _isValid = false;
         }
         
@@ -75,15 +76,14 @@ namespace ObjectPool
     }
     
     /// <summary>
-    /// Wrapper class that is returned from the pool to represent a single pooled lifetime of a prefab instance.
+    /// Wrapper class that is returned from the pool to represent a single pooled lifetime of an object instance.
     /// When the instance is returned to the pool, this wrapper will get disposed and marked as invalid.
     /// </summary>
     public class PooledInstance<T> : PooledInstance where T : class
     {
         public T Instance { get; private set; }
-        public override bool IsValid => base.IsValid && Instance != null;
 
-        public PooledInstance(T instance, PrefabPool pool) : base(pool)
+        public PooledInstance(T instance, IPool pool) : base(pool)
         {
             Assert.IsNotNull(instance);
             Instance = instance;
@@ -101,5 +101,19 @@ namespace ObjectPool
 
             return null;
         }
+    }
+
+    /// <summary>
+    /// Wrapper class that is returned from the pool to represent a single pooled lifetime of a prefab instance.
+    /// When the instance is returned to the pool, this wrapper will get disposed and marked as invalid.
+    /// </summary>
+    public class PooledPrefabInstance<T> : PooledInstance<T> where T : UnityEngine.Object
+    {
+        // If our instance gets destroyed, mark ourselves as invalid
+        // Must be performed in here rather than the more generic PooledInstance
+        // to invoke UnityEngine.Object's special comparison to null
+        public override bool IsValid => base.IsValid && Instance != null;
+        
+        public PooledPrefabInstance(T instance, IPool pool) : base(instance, pool) { }
     }
 }

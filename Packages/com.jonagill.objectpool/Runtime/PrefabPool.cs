@@ -30,7 +30,7 @@ namespace ObjectPool
         private readonly Transform poolRoot;
         private bool isDisposed;
 
-        private readonly List<PooledInstance<T>> activeInstances = new List<PooledInstance<T>>();
+        private readonly List<PooledPrefabInstance<T>> activeInstances = new List<PooledPrefabInstance<T>>();
         private readonly List<T> reserveInstances = new List<T>();
 
         private readonly bool hasPooledComponents;
@@ -79,7 +79,7 @@ namespace ObjectPool
                 instance = CreateInstance();
             }
 
-            var pooledInstance = new PooledInstance<T>(instance, this);
+            var pooledInstance = new PooledPrefabInstance<T>(instance, this);
 
             // Track the new instance and its lifecycle token
             activeInstances.Add(pooledInstance);
