@@ -31,7 +31,7 @@ namespace ObjectPool
         private bool isDisposed;
 
         private readonly List<PooledPrefabInstance<T>> activeInstances = new List<PooledPrefabInstance<T>>();
-        private readonly List<T> reserveInstances = new List<T>();
+        private readonly Stack<T> reserveInstances = new Stack<T>();
 
         private readonly bool hasPooledComponents;
         private readonly Dictionary<GameObject, IPooledComponent[]> pooledComponentMap =
@@ -70,9 +70,7 @@ namespace ObjectPool
             T instance = null;
             if (reserveInstances.Count > 0)
             {
-                var lastIndex = reserveInstances.Count - 1;
-                instance = reserveInstances[lastIndex];
-                reserveInstances.RemoveAt(lastIndex);
+                instance = reserveInstances.Pop();
             }
             else
             {
@@ -81,7 +79,7 @@ namespace ObjectPool
 
             var pooledInstance = new PooledPrefabInstance<T>(instance, this);
 
-            // Track the new instance and its lifecycle token
+            // Track the new instance
             activeInstances.Add(pooledInstance);
             
             // Unparent from the disabled root
@@ -159,24 +157,7 @@ namespace ObjectPool
                 instance.GetType(),
                 $"Component {instance} cannot be returned as it is of type {instance.GetType()}, but this pool expects type {prefab.GetType()}.");
 #endif
-
-            // Search from the back of the collection to the front so that frequently pooled and unpooled
-            // objects don't have to search through the oldest instances first to find themselves
-            int instanceIndex = -1;
-            for (int i = activeInstances.Count-1; i >= 0; i--)
-            {
-                if (activeInstances[i].Instance == instance)
-                {
-                    instanceIndex = i;
-                    break;
-                }
-            }
             
-            Assert.IsTrue(instanceIndex >= 0, $"Component {instance} cannot be returned as it is not considered an active instance by this pool.");
-
-            var pooledInstance = activeInstances[instanceIndex];
-            Assert.IsTrue(pooledInstance.IsValid, $"Component {instance} cannot be returned as its lifecycle has already been marked as complete.");
-
             // Notify any IPooledComponents that they're being returned
             if (hasPooledComponents)
             {
@@ -195,10 +176,29 @@ namespace ObjectPool
 
             // Reparent under the disabled root
             instance.transform.SetParent(poolRoot, false);
+            
+            // Search from the back of the collection to the front so that frequently pooled and unpooled
+            // objects don't have to search through the oldest instances first to find themselves
+            // Perform this search after we have already processed OnReturn() so that any callbacks
+            // that interact with the pool have already occurred
+            int instanceIndex = -1;
+            for (int i = activeInstances.Count-1; i >= 0; i--)
+            {
+                if (activeInstances[i].Instance == instance)
+                {
+                    instanceIndex = i;
+                    break;
+                }
+            }
+            
+            Assert.IsTrue(instanceIndex >= 0, $"Component {instance} cannot be returned as it is not considered an active instance by this pool.");
 
             activeInstances.RemoveAt(instanceIndex);
-            reserveInstances.Add(instance);
+            reserveInstances.Push(instance);
             
+            var pooledInstance = activeInstances[instanceIndex];
+            Assert.IsTrue(pooledInstance.IsValid, $"Component {instance} cannot be returned as its lifecycle has already been marked as complete.");
+
             // Mark that this lifecycle has ended
             ((IPooledLifetime) pooledInstance).MarkInvalid();
         }
@@ -218,6 +218,9 @@ namespace ObjectPool
             }
         }
 
+        /// <summary>
+        /// Destroys all instances of the prefab that are not currently acquired by an external system.
+        /// </summary>
         public override void Clear()
         {
             foreach (var instance in reserveInstances)
