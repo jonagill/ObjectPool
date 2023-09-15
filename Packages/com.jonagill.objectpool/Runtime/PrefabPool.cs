@@ -191,14 +191,14 @@ namespace ObjectPool
                 }
             }
             
+            var pooledInstance = activeInstances[instanceIndex];
+            Assert.IsTrue(pooledInstance.IsValid, $"Component {instance} cannot be returned as its lifecycle has already been marked as complete.");
+
             Assert.IsTrue(instanceIndex >= 0, $"Component {instance} cannot be returned as it is not considered an active instance by this pool.");
 
             activeInstances.RemoveAt(instanceIndex);
             reserveInstances.Push(instance);
             
-            var pooledInstance = activeInstances[instanceIndex];
-            Assert.IsTrue(pooledInstance.IsValid, $"Component {instance} cannot be returned as its lifecycle has already been marked as complete.");
-
             // Mark that this lifecycle has ended
             ((IPooledLifetime) pooledInstance).MarkInvalid();
         }

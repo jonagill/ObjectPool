@@ -81,13 +81,27 @@ namespace ObjectPool
     /// </summary>
     public class PooledInstance<T> : PooledInstance where T : class
     {
-        public T Instance { get; private set; }
+        private T _instance;
+        public T Instance
+        {
+            get
+            {
+                if ( IsValid )
+                {
+                    return _instance;
+                }
+
+                throw new InvalidOperationException($"Attempting to retrieve instance {(_instance)} from {nameof(PooledInstance)} that is no longer valid.");
+            }
+        }
 
         public PooledInstance(T instance, IPool pool) : base(pool)
         {
             Assert.IsNotNull(instance);
-            Instance = instance;
+            _instance = instance;
         }
+
+        protected T GetRawInstance() => _instance;
 
         // Implicitly convert pooled instances to their backing type so that users can assign directly
         // to the backing type if they want to. (This will deprive them of access to checking if their instance
@@ -112,8 +126,8 @@ namespace ObjectPool
         // If our instance gets destroyed, mark ourselves as invalid
         // Must be performed in here rather than the more generic PooledInstance
         // to invoke UnityEngine.Object's special comparison to null
-        public override bool IsValid => base.IsValid && Instance != null;
-        
+        public override bool IsValid => base.IsValid && GetRawInstance() != null;
+
         public PooledPrefabInstance(T instance, IPool pool) : base(instance, pool) { }
     }
 }
