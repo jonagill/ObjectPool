@@ -214,7 +214,7 @@ namespace ObjectPool
             var needInReserve = capacity - ActiveCount;
             while (reserveInstances.Count < needInReserve)
             {
-                reserveInstances.Add(CreateInstance());
+                reserveInstances.Push(CreateInstance());
             }
         }
 
