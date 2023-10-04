@@ -47,6 +47,27 @@ namespace ObjectPool
         public static bool operator ==(PooledInstance x, PooledInstance y) => CompareInstances(x, y);
 
         public static bool operator !=(PooledInstance x, PooledInstance y) => !CompareInstances(x, y);
+        
+        public override bool Equals(Object obj)
+        {
+            //Check for null and compare run-time types.
+            if ((obj == null) || this.GetType() != obj.GetType())
+            {
+                return false;
+            }
+            else
+            {
+                PooledInstance other = (PooledInstance) obj;
+                return (this.Pool == other.Pool) &&
+                       (this.IsValid == other.IsValid);
+            }
+        }
+
+        public override int GetHashCode()
+        {
+            // Require this to be implemented in a child class that has enough information to generate a unique hashcode
+            throw new NotImplementedException();
+        }
 
         private static bool CompareInstances(PooledInstance x, PooledInstance y)
         {
@@ -102,6 +123,24 @@ namespace ObjectPool
         }
 
         protected T GetRawInstance() => _instance;
+        
+        public override bool Equals(Object obj)
+        {
+            if ( !base.Equals( obj ) )
+            {
+                return false;
+            }
+            else
+            {
+                PooledInstance<T> other = (PooledInstance<T>) obj;
+                return (this.Instance == other.Instance);
+            }
+        }
+
+        public override int GetHashCode()
+        {
+            return HashCode.Combine( Pool.GetHashCode(), Instance.GetHashCode() );
+        }
 
         // Implicitly convert pooled instances to their backing type so that users can assign directly
         // to the backing type if they want to. (This will deprive them of access to checking if their instance
