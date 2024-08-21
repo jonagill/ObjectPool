@@ -9,32 +9,32 @@ namespace ObjectPool
         bool IsValid { get; }
         void MarkInvalid();
     }
-    
+
     /// <summary>
     /// Wrapper class that is returned from the pool to represent a single pooled lifetime of an object.
     /// When the object is returned to the pool, this wrapper will get disposed and marked as invalid.
     /// </summary>
     public abstract class PooledInstance : IPooledLifetime
     {
-        public IPool Pool { get; private set; }
+        private readonly IPool pool;
+        public IPool Pool => pool;
 
-        private bool _isValid;
-        public virtual bool IsValid => _isValid;
+        private bool isValid;
+        public virtual bool IsValid => isValid;
 
         public PooledInstance(IPool pool)
         {
             Debug.Assert(pool != null);
-            Pool = pool;
-            _isValid = true;
+            this.pool = pool;
+            isValid = true;
         }
-        
+
         // Explicitly implement the IPooledLifetime interface so this has to be called very intentionally
         void IPooledLifetime.MarkInvalid()
         {
-            Assert.IsTrue(_isValid);
-            _isValid = false;
+            Assert.IsTrue(isValid);
+            isValid = false;
         }
-        
 
         // Implicitly convert pooled instances to bools by comparing against null. This matches Unity's 
         // default behavior when casting a UnityEngine.Object to a bool
@@ -42,13 +42,13 @@ namespace ObjectPool
         {
             return pooledInstance != null;
         }
-        
+
         // Mirror Unity's default behavior where comparing against null can be used to check if an object is still valid or not
         public static bool operator ==(PooledInstance x, PooledInstance y) => CompareInstances(x, y);
 
         public static bool operator !=(PooledInstance x, PooledInstance y) => !CompareInstances(x, y);
-        
-        public override bool Equals(Object obj)
+
+        public override bool Equals(System.Object obj)
         {
             //Check for null and compare run-time types.
             if ((obj == null) || this.GetType() != obj.GetType())
@@ -57,7 +57,7 @@ namespace ObjectPool
             }
             else
             {
-                PooledInstance other = (PooledInstance) obj;
+                PooledInstance other = (PooledInstance)obj;
                 return (this.Pool == other.Pool) &&
                        (this.IsValid == other.IsValid);
             }
@@ -88,59 +88,43 @@ namespace ObjectPool
                 // y is null -- check if x is invalid (and thus should return true when compared to null)
                 return !x.IsValid;
             }
-            
+
             // Neither are null -- actually invoke standard equality comparison
             // (It's expected that this should return false, since we failed the ReferenceEquals
             // check at the top of the function.)
             return x.Equals(y);
         }
     }
-    
+
     /// <summary>
     /// Wrapper class that is returned from the pool to represent a single pooled lifetime of an object instance.
     /// When the instance is returned to the pool, this wrapper will get disposed and marked as invalid.
     /// </summary>
     public class PooledInstance<T> : PooledInstance where T : class
     {
-        private T _instance;
+        private readonly T instance;
+
         public T Instance
         {
             get
             {
-                if ( IsValid )
+                if (IsValid)
                 {
-                    return _instance;
+                    return instance;
                 }
 
-                throw new InvalidOperationException($"Attempting to retrieve instance {(_instance)} from {nameof(PooledInstance)} that is no longer valid.");
+                throw new InvalidOperationException(
+                    $"Attempting to retrieve instance {instance} from {nameof(PooledInstance)} that is no longer valid.");
             }
         }
 
         public PooledInstance(T instance, IPool pool) : base(pool)
         {
             Assert.IsNotNull(instance);
-            _instance = instance;
+            this.instance = instance;
         }
 
-        protected T GetRawInstance() => _instance;
-        
-        public override bool Equals(Object obj)
-        {
-            if ( !base.Equals( obj ) )
-            {
-                return false;
-            }
-            else
-            {
-                PooledInstance<T> other = (PooledInstance<T>) obj;
-                return (this.Instance == other.Instance);
-            }
-        }
-
-        public override int GetHashCode()
-        {
-            return HashCode.Combine( Pool.GetHashCode(), Instance.GetHashCode() );
-        }
+        protected T GetRawInstance() => instance;
 
         // Implicitly convert pooled instances to their backing type so that users can assign directly
         // to the backing type if they want to. (This will deprive them of access to checking if their instance
@@ -153,6 +137,22 @@ namespace ObjectPool
             }
 
             return null;
+        }
+
+        public override bool Equals(System.Object obj)
+        {
+            if (!base.Equals(obj))
+            {
+                return false;
+            }
+
+            PooledInstance<T> other = (PooledInstance<T>)obj;
+            return (this.Instance == other.Instance);
+        }
+
+        public override int GetHashCode()
+        {
+            return HashCode.Combine(Pool.GetHashCode(), Instance.GetHashCode());
         }
     }
 
@@ -167,6 +167,10 @@ namespace ObjectPool
         // to invoke UnityEngine.Object's special comparison to null
         public override bool IsValid => base.IsValid && GetRawInstance() != null;
 
-        public PooledPrefabInstance(T instance, IPool pool) : base(instance, pool) { }
+        public T RawInstance => GetRawInstance();
+
+        public PooledPrefabInstance(T instance, IPool pool) : base(instance, pool)
+        {
+        }
     }
 }

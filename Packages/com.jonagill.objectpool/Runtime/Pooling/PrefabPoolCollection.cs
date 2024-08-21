@@ -14,7 +14,7 @@ namespace ObjectPool
 
         private readonly Transform root;
         private bool isDisposed;
-        
+
         /// <summary>
         /// Create a PrefabPoolCollection using the provided transform as the parent for all inactive prefab instances.
         /// </summary>
@@ -22,7 +22,7 @@ namespace ObjectPool
         {
             this.root = root;
         }
-        
+
         /// <summary>
         /// Create a PrefabPoolCollection using a root-level transform as the parent for all inactive prefab instances. 
         /// </summary>
@@ -36,46 +36,49 @@ namespace ObjectPool
 
             this.root = rootObject.transform;
         }
-        
+
         #region Public API
-        
+
         public PooledInstance<T> Acquire<T>(T prefab) where T : Component
         {
             return Acquire(prefab, null, Vector3.zero, Quaternion.identity);
         }
-        
+
         public PooledInstance<T> Acquire<T>(T prefab, Transform parent) where T : Component
         {
             return Acquire(prefab, parent, Vector3.zero, Quaternion.identity);
-
         }
-        
-        public PooledInstance<T> Acquire<T>(T prefab, Vector3 localPosition, Quaternion localRotation) where T : Component
+
+        public PooledInstance<T> Acquire<T>(T prefab, Vector3 localPosition, Quaternion localRotation)
+            where T : Component
         {
             return Acquire(prefab, null, localPosition, localRotation);
         }
-        
-        public PooledInstance<T> Acquire<T>(T prefab, Transform parent, Vector3 localPosition, Quaternion localRotation) where T : Component
+
+        public PooledInstance<T> Acquire<T>(T prefab, Transform parent, Vector3 localPosition, Quaternion localRotation)
+            where T : Component
         {
             return AcquireInternal(prefab, true, parent, localPosition, localRotation);
         }
-        
+
         public PooledInstance<T> AcquireDisabled<T>(T prefab) where T : Component
         {
             return AcquireDisabled(prefab, null, Vector3.zero, Quaternion.identity);
         }
-        
+
         public PooledInstance<T> AcquireDisabled<T>(T prefab, Transform parent) where T : Component
         {
             return AcquireDisabled(prefab, parent, Vector3.zero, Quaternion.identity);
         }
-        
-        public PooledInstance<T> AcquireDisabled<T>(T prefab, Vector3 localPosition, Quaternion localRotation) where T : Component
+
+        public PooledInstance<T> AcquireDisabled<T>(T prefab, Vector3 localPosition, Quaternion localRotation)
+            where T : Component
         {
             return AcquireDisabled(prefab, null, localPosition, localRotation);
         }
-        
-        public PooledInstance<T> AcquireDisabled<T>(T prefab, Transform parent, Vector3 localPosition, Quaternion localRotation) where T : Component
+
+        public PooledInstance<T> AcquireDisabled<T>(T prefab, Transform parent, Vector3 localPosition,
+            Quaternion localRotation) where T : Component
         {
             return AcquireInternal(prefab, false, parent, localPosition, localRotation);
         }
@@ -83,26 +86,37 @@ namespace ObjectPool
         public void PreWarm<T>(T prefab, int capacity) where T : Component
         {
             Assert.IsFalse(isDisposed);
-            
+            if (prefab == null)
+            {
+                Debug.LogWarning($"Canont prewarm a pool with a null prefab.");
+                return;
+            }
+
             var pool = GetOrCreatePool(prefab);
             pool.PreWarm(capacity);
         }
-        
+
         public void Return<T>(T instance) where T : Component
         {
             // Returning doesn't actually require any data from PrefabPoolCollection,
             // but is included here so that Acquire() and Return() are accessible from the same API
-            PooledObject.Return(instance);
+            PooledObject.ReturnOrDestroy(instance);
         }
-        
+
+        /// <summary>
+        /// Destroys all instances of all prefabs that are not currently acquired by an external system.
+        /// </summary>
         public void ClearAll()
         {
-            foreach ( var pool in prefabPools.Values )
+            foreach (var pool in prefabPools.Values)
             {
                 pool.Clear();
             }
         }
 
+        /// <summary>
+        /// Destroys all instances of the prefab that are not currently acquired by an external system.
+        /// </summary>
         public void Clear<T>(T prefab) where T : Component
         {
             if (prefabPools.TryGetValue(prefab, out var pool))
@@ -110,7 +124,7 @@ namespace ObjectPool
                 pool.Clear();
             }
         }
-        
+
         public void Dispose()
         {
             if (isDisposed)
@@ -122,25 +136,32 @@ namespace ObjectPool
             {
                 pool.Dispose();
             }
-            
+
             prefabPools.Clear();
 
             isDisposed = true;
         }
 
         #endregion
-        
+
         #region Internals
-        
-        private PooledInstance<T> AcquireInternal<T>(T prefab, bool activate, Transform parent, Vector3 localPosition, Quaternion localRotation) where T : Component
+
+        private PooledInstance<T> AcquireInternal<T>(T prefab, bool activate, Transform parent, Vector3 localPosition,
+            Quaternion localRotation) where T : Component
         {
+            if (prefab == null)
+            {
+                Debug.LogError("Cannot create a pool for a null prefab.");
+                return null;
+            }
+
             Assert.IsFalse(isDisposed);
-            
+
             var pool = GetOrCreatePool(prefab);
             var pooledInstance = pool.Acquire();
             var instanceTransform = pooledInstance.Instance.transform;
-            
-            instanceTransform.SetParent(parent, false);
+
+            instanceTransform.SetParent(parent, worldPositionStays: false);
             instanceTransform.localPosition = localPosition;
             instanceTransform.localRotation = localRotation;
 
@@ -151,11 +172,11 @@ namespace ObjectPool
 
             return pooledInstance;
         }
-        
+
         #endregion
-        
+
         #region Helpers
-        
+
         private IPool<T> GetOrCreatePool<T>(T prefab) where T : Component
         {
             if (!prefabPools.TryGetValue(prefab, out var pool))
@@ -164,9 +185,9 @@ namespace ObjectPool
                 prefabPools[prefab] = pool;
             }
 
-            return (IPool<T>) pool;
+            return (IPool<T>)pool;
         }
-        
+
         #endregion
     }
 }
