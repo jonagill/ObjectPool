@@ -8,7 +8,7 @@ namespace ObjectPool
     /// Markup component that tracks what PrefabPool a component came from.
     /// </summary>
     [AddComponentMenu("")]
-    public class PooledObject : MonoBehaviour
+    public class PooledObject : MonoBehaviour, IPooledComponent
     {
         [RuntimeInitializeOnLoadMethod]
         private static void OnRuntimeLoad()
@@ -19,22 +19,42 @@ namespace ObjectPool
         // TODO: Replace with List-based Action implementation to prevent heavy allocations
         private static event Action<Transform> OnParentDestroyed;
 
+        private bool isSubscribedToCallbacks;
+
         public PrefabPool Pool { get; private set; }
 
-        internal void SetPool(PrefabPool pool)
+        private void OnDestroy()
         {
-            Debug.Assert(Pool == null);
-            Pool = pool;
+            // Don't remain subscribed if we get destroyed without being returned
+            UnsubscribeFromCallbacks();
         }
 
-        private void OnEnable()
+        void IPooledComponent.OnAcquire()
         {
-            OnParentDestroyed += HandleOnParentDestroyed;
+            SubscribeToCallbacks();
         }
 
-        private void OnDisable()
+        void IPooledComponent.OnReturn()
         {
-            OnParentDestroyed -= HandleOnParentDestroyed;
+            UnsubscribeFromCallbacks();
+        }
+
+        private void SubscribeToCallbacks()
+        {
+            if (!isSubscribedToCallbacks)
+            {
+                OnParentDestroyed += HandleOnParentDestroyed;
+                isSubscribedToCallbacks = true;
+            }
+        }
+
+        private void UnsubscribeFromCallbacks()
+        {
+            if (isSubscribedToCallbacks)
+            {
+                OnParentDestroyed -= HandleOnParentDestroyed;
+                isSubscribedToCallbacks = false;
+            }
         }
 
         private void HandleOnParentDestroyed(Transform parent)
@@ -43,6 +63,12 @@ namespace ObjectPool
             {
                 ReturnOrDestroy(gameObject);
             }
+        }
+        
+        internal void SetPool(PrefabPool pool)
+        {
+            Debug.Assert(Pool == null);
+            Pool = pool;
         }
 
         /// <summary>
@@ -82,6 +108,8 @@ namespace ObjectPool
         /// <summary>
         /// Notifies pooled objects that an object that pooled objects might be parented to has been destroyed,
         /// giving them a chance to return to the pool rather than be destroyed.
+        ///
+        /// Must be called manually from OnDestroy() on objects that are likely to have pooled objects parented to them.
         /// </summary>
         public static void NotifyParentDestroyed(GameObject parent)
         {

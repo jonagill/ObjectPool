@@ -34,8 +34,7 @@ namespace ObjectPool
         private readonly List<PooledPrefabInstance<T>> activeInstances = new List<PooledPrefabInstance<T>>();
         private readonly Stack<T> reserveInstances = new Stack<T>();
 
-        private readonly bool hasPooledComponents;
-
+        // TODO: Replace with reusable lists
         private readonly Dictionary<GameObject, IPooledComponent[]> pooledComponentMap =
             new Dictionary<GameObject, IPooledComponent[]>();
 
@@ -54,7 +53,6 @@ namespace ObjectPool
             Assert.IsNotNull(root);
 
             this.prefab = prefab;
-            hasPooledComponents = prefab.GetComponentInChildren<IPooledComponent>(true) != null;
             hasTrailRenderers = prefab.GetComponentInChildren<TrailRenderer>(true) != null;
             prefabScale = prefab.transform.localScale;
 
@@ -111,15 +109,12 @@ namespace ObjectPool
             EditorEnsurePooledComponentsMatchCachedValues(instance.gameObject);
 
             // Notify any IPooledComponents that they've been acquired
-            if (hasPooledComponents)
+            var pooledComponents = pooledComponentMap[instance.gameObject];
+            foreach (var component in pooledComponents)
             {
-                var pooledComponents = pooledComponentMap[instance.gameObject];
-                foreach (var component in pooledComponents)
+                if (component != null)
                 {
-                    if (component != null)
-                    {
-                        component.OnAcquire();
-                    }
+                    component.OnAcquire();
                 }
             }
 
@@ -184,15 +179,12 @@ namespace ObjectPool
 #endif
 
             // Notify any IPooledComponents that they're being returned
-            if (hasPooledComponents)
+            var pooledComponents = pooledComponentMap[instance.gameObject];
+            foreach (var component in pooledComponents)
             {
-                var pooledComponents = pooledComponentMap[instance.gameObject];
-                foreach (var component in pooledComponents)
+                if (component != null)
                 {
-                    if (component != null)
-                    {
-                        component.OnReturn();
-                    }
+                    component.OnReturn();
                 }
             }
 
@@ -254,10 +246,7 @@ namespace ObjectPool
         {
             foreach (var instance in reserveInstances)
             {
-                if (hasPooledComponents)
-                {
-                    pooledComponentMap.Remove(instance.gameObject);
-                }
+                pooledComponentMap.Remove(instance.gameObject);
 
                 if (hasTrailRenderers)
                 {
@@ -304,10 +293,7 @@ namespace ObjectPool
             var pooledObject = instance.gameObject.AddComponent<PooledObject>();
             pooledObject.SetPool(this);
 
-            if (hasPooledComponents)
-            {
-                pooledComponentMap[instance.gameObject] = instance.GetComponentsInChildren<IPooledComponent>(true);
-            }
+            pooledComponentMap[instance.gameObject] = instance.GetComponentsInChildren<IPooledComponent>(true);
 
             if (hasTrailRenderers)
             {
@@ -321,7 +307,7 @@ namespace ObjectPool
         private void EditorEnsurePooledComponentsMatchCachedValues(GameObject instance)
         {
             var pooledComponents = instance.GetComponentsInChildren<IPooledComponent>(true);
-            var cachedPooledComponentCount = hasPooledComponents ? pooledComponentMap[instance].Length : 0;
+            var cachedPooledComponentCount = pooledComponentMap[instance].Length;
             if (cachedPooledComponentCount != pooledComponents.Length)
             {
                 Debug.LogError(
