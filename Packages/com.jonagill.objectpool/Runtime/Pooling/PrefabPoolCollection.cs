@@ -146,7 +146,10 @@ namespace ObjectPool
 
         #region Internals
 
-        private PooledInstance<T> AcquireInternal<T>(T prefab, bool activate, Transform parent, Vector3 localPosition,
+        private PooledInstance<T> AcquireInternal<T>(T prefab,
+            bool activate, 
+            Transform parent, 
+            Vector3 localPosition,
             Quaternion localRotation) where T : Component
         {
             if (prefab == null)
@@ -158,17 +161,7 @@ namespace ObjectPool
             Assert.IsFalse(isDisposed);
 
             var pool = GetOrCreatePool(prefab);
-            var pooledInstance = pool.Acquire();
-            var instanceTransform = pooledInstance.Instance.transform;
-
-            instanceTransform.SetParent(parent, worldPositionStays: false);
-            instanceTransform.localPosition = localPosition;
-            instanceTransform.localRotation = localRotation;
-
-            if (activate)
-            {
-                instanceTransform.gameObject.SetActive(true);
-            }
+            var pooledInstance = pool.Acquire(activate, parent, localPosition, localRotation);
 
             return pooledInstance;
         }
@@ -177,7 +170,7 @@ namespace ObjectPool
 
         #region Helpers
 
-        private IPool<T> GetOrCreatePool<T>(T prefab) where T : Component
+        private PrefabPool<T> GetOrCreatePool<T>(T prefab) where T : Component
         {
             if (!prefabPools.TryGetValue(prefab, out var pool))
             {
@@ -185,7 +178,7 @@ namespace ObjectPool
                 prefabPools[prefab] = pool;
             }
 
-            return (IPool<T>)pool;
+            return (PrefabPool<T>)pool;
         }
 
         #endregion

@@ -68,6 +68,19 @@ namespace ObjectPool
         /// </summary>
         public PooledInstance<T> Acquire()
         {
+            return Acquire(true, null, Vector3.zero, Quaternion.identity);
+        }
+
+        /// <summary>
+        /// Retrieve an instance of the configured prefab from the pool, creating a new instance if necessary.
+        /// Returns the instance as disabled so that the invoking system can control when to re-enable the instance.
+        /// </summary>
+        public PooledInstance<T> Acquire(
+            bool activate,
+            Transform parent, 
+            Vector3 localPosition, 
+            Quaternion localRotation)
+        {
             Assert.IsFalse(isDisposed);
             Assert.IsNotNull(poolRoot);
 
@@ -86,8 +99,13 @@ namespace ObjectPool
             // Track the new instance and its lifecycle token
             activeInstances.Add(pooledInstance);
 
-            // Unparent from the disabled root
-            instance.transform.SetParent(null, worldPositionStays: false);
+            // Unparent from the disabled root and reparent to the new parent (if any)
+            var instanceTransform = instance.transform;
+            instanceTransform.SetParent(parent, worldPositionStays: false);
+            
+            // Set our new position and rotation before running OnAcquire()
+            instanceTransform.localPosition = localPosition;
+            instanceTransform.localRotation = localRotation;
 
             // Run editor check to make sure no one is adding or removing IPooledComponents after acquisition
             EditorEnsurePooledComponentsMatchCachedValues(instance.gameObject);
@@ -115,7 +133,11 @@ namespace ObjectPool
                 }
             }
 
-            // Do not re-activate the instance -- leave that for the invoker to decide when to activate the instance
+            if (activate)
+            {
+                pooledInstance.Instance.gameObject.SetActive(true);    
+            }
+            
             return pooledInstance;
         }
 
@@ -177,7 +199,7 @@ namespace ObjectPool
             // Disable the object again so we don't pay additional costs for reparenting (e.g. recalculating UI layouts)
             instance.gameObject.SetActive(false);
 
-            // Reparent under the disabled root
+            // Reparent under the disabled root and reset scale
             instance.transform.SetParent(poolRoot, false);
             instance.transform.localScale = prefabScale;
 
