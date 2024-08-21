@@ -8,7 +8,7 @@ namespace ObjectPool
     /// As many other frameworks may declare their own MonoBehaviour child classes (e.g. for networking),
     /// this is provided more as an example than as production code.
     /// </summary>
-    public class PooledBehaviour : MonoBehaviour, IPooledComponent
+    public abstract class PooledBehaviour : MonoBehaviour, IPooledComponent
     {
         private bool hasRunAwake = false;
         
