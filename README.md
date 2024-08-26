@@ -1,8 +1,8 @@
-# Promises
+# Object Pool
 This library provides a system for [pooling](https://gameprogrammingpatterns.com/object-pool.html) Unity prefab instances. This can help improve performance in games by reducing the amount of time spent and memory allocated instantiating and destroying instances of the same prefab.
 
 ## Installation
-We recommend you install the Object Pool library via [OpenUPM](https://openupm.com/packages/com.jonagill.promises/). Per OpenUPM's documentation:
+We recommend you install the Object Pool library via [OpenUPM](https://openupm.com/packages/com.jonagill.objectpool/). Per OpenUPM's documentation:
 
 1. Open `Edit/Project Settings/Package Manager`
 2. Add a new Scoped Registry (or edit the existing OpenUPM entry) to read:
