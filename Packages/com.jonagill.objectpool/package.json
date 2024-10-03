@@ -1,7 +1,7 @@
 {
   "name": "com.jonagill.objectpool",
   "description": "Provides functionality for pooling Unity GameObjects.",
-  "version": "1.0.1",
+  "version": "1.0.2",
   "unity": "2019.2",
   "displayName": "ObjectPool"
 }
