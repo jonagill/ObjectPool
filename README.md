@@ -79,7 +79,7 @@ While you just assign the results of `PrefabPoolCollection.Acquire()` directly t
 
 GameObjects acquired from the pool will have a special `PooledObject` component added to them automatically. This component tracks metadata about the pool that the object came from. It also exposes several important static helper methods.
 
-### `PooledObject.ReturnOnDestroy<T>(T component)` and `PooledObject.ReturnOrDestroy(GameObject go)`
+### `PooledObject.ReturnOrDestroy<T>(T component)` and `PooledObject.ReturnOrDestroy(GameObject go)`
 
 These methods will check whether the provided target object was acquired from a pool. If it was, the object gets returned to the pool. If it wasn't (or if the pool no longer exists), the object is simply destroyed via `Object.Destroy()`.
 
